@@ -764,13 +764,14 @@ int init_io_ctx(librados::Rados &rados, const std::string &pool_name,
 }
 
 int open_image(librados::IoCtx &io_ctx, const std::string &image_name,
-               bool read_only, librbd::Image *image) {
+               const std::string &snap_name, bool read_only,
+	       librbd::Image *image) {
   int r;
   librbd::RBD rbd;
   if (read_only) {
-    r = rbd.open_read_only(io_ctx, *image, image_name.c_str(), NULL);
+    r = rbd.open_read_only(io_ctx, *image, image_name.c_str(), snap_name.c_str());
   } else {
-    r = rbd.open(io_ctx, *image, image_name.c_str());
+    r = rbd.open(io_ctx, *image, image_name.c_str(), snap_name.c_str());
   }
 
   if (r < 0) {
@@ -791,17 +792,11 @@ int init_and_open_image(const std::string &pool_name,
     return r;
   }
 
-  r = open_image(*io_ctx, image_name, read_only, image);
+  r = open_image(*io_ctx, image_name, snap_name, read_only, image);
   if (r < 0) {
     return r;
   }
 
-  if (!snap_name.empty()) {
-    r = snap_set(*image, snap_name);
-    if (r < 0) {
-      return r;
-    }
-  }
   return 0;
 }
 
