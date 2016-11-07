@@ -2591,6 +2591,9 @@ class PGBackend;
 class ObjectModDesc {
   bool can_local_rollback;
   bool rollback_info_completed;
+
+  // version required to decode, reflected in encode/decode version
+  __u8 max_required_version = 1;
 public:
   class Visitor {
   public:
@@ -2607,7 +2610,10 @@ public:
       rmobject(old_version);
     }
     virtual void create() {}
-    virtual void update_snaps(set<snapid_t> &old_snaps) {}
+    virtual void update_snaps(const set<snapid_t> &old_snaps) {}
+    virtual void rollback_extents(
+      version_t gen,
+      const vector<pair<uint64_t, uint64_t> > &extents) {}
     virtual ~Visitor() {}
   };
   void visit(Visitor *visitor) const;
@@ -2618,7 +2624,8 @@ public:
     DELETE = 3,
     CREATE = 4,
     UPDATE_SNAPS = 5,
-    TRY_DELETE = 6
+    TRY_DELETE = 6,
+    ROLLBACK_EXTENTS = 7
   };
   ObjectModDesc() : can_local_rollback(true), rollback_info_completed(false) {}
   void claim(ObjectModDesc &other) {
@@ -2640,13 +2647,9 @@ public:
   void swap(ObjectModDesc &other) {
     bl.swap(other.bl);
 
-    bool temp = other.can_local_rollback;
-    other.can_local_rollback = can_local_rollback;
-    can_local_rollback = temp;
-
-    temp = other.rollback_info_completed;
-    other.rollback_info_completed = rollback_info_completed;
-    rollback_info_completed = temp;
+    ::swap(other.can_local_rollback, can_local_rollback);
+    ::swap(other.rollback_info_completed, rollback_info_completed);
+    ::swap(other.max_required_version, max_required_version);
   }
   void append_id(ModID id) {
     uint8_t _id(id);
@@ -2696,12 +2699,24 @@ public:
     append_id(CREATE);
     ENCODE_FINISH(bl);
   }
-  void update_snaps(set<snapid_t> &old_snaps) {
+  void update_snaps(const set<snapid_t> &old_snaps) {
     if (!can_local_rollback || rollback_info_completed)
       return;
     ENCODE_START(1, 1, bl);
     append_id(UPDATE_SNAPS);
     ::encode(old_snaps, bl);
+    ENCODE_FINISH(bl);
+  }
+  void rollback_extents(
+    version_t gen, const vector<pair<uint64_t, uint64_t> > &extents) {
+    assert(can_local_rollback);
+    assert(!rollback_info_completed);
+    if (max_required_version < 2)
+      max_required_version = 2;
+    ENCODE_START(2, 2, bl);
+    append_id(ROLLBACK_EXTENTS);
+    ::encode(gen, bl);
+    ::encode(extents, bl);
     ENCODE_FINISH(bl);
   }
 
@@ -2715,6 +2730,10 @@ public:
   }
   bool empty() const {
     return can_local_rollback && (bl.length() == 0);
+  }
+
+  bool requires_kraken() const {
+    return max_required_version >= 2;
   }
 
   /**
@@ -2837,7 +2856,7 @@ struct pg_log_entry_t {
   }
 
   bool requires_kraken() const {
-    return false;
+    return mod_desc.requires_kraken();
   }
 
   // Errors are only used for dup detection, whereas
