@@ -2108,7 +2108,11 @@ void PG::mark_clean()
 
   trim_past_intervals();
 
-  kick_snap_trim();
+  if (is_active()) {
+    /* The check is needed because if we are below min_size we're not
+     * actually active */
+    kick_snap_trim();
+  }
 
   dirty_info = true;
 }
