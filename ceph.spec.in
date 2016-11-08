@@ -250,6 +250,7 @@ Requires:	librados2 = %{epoch}:%{version}-%{release}
 Requires:	libcephfs2 = %{epoch}:%{version}-%{release}
 Requires:	python-rados = %{epoch}:%{version}-%{release}
 Requires:	python-rbd = %{epoch}:%{version}-%{release}
+Requires:	python-rgw = %{epoch}:%{version}-%{release}
 Requires:	python-cephfs = %{epoch}:%{version}-%{release}
 Requires:	python-requests
 %{?systemd_requires}
@@ -516,6 +517,26 @@ Requires:	python%{python3_pkgversion}-rados = %{epoch}:%{version}-%{release}
 %description -n python%{python3_pkgversion}-rbd
 This package contains Python 3 libraries for interacting with Cephs RADOS
 block device.
+
+%package -n python-rgw
+Summary:	Python 2 libraries for the RADOS block device
+Group:		System Environment/Libraries
+License:	LGPL-2.0
+Requires:	librgw1 = %{epoch}:%{version}-%{release}
+Requires:	python-rados = %{epoch}:%{version}-%{release}
+Obsoletes:	python-ceph < %{epoch}:%{version}-%{release}
+%description -n python-rgw
+This package contains Python 2 libraries for interacting with Cephs RADOS
+block device.
+
+%package -n python%{python3_pkgversion}-rgw
+Summary:	Python 3 libraries for the RADOSGW
+Group:		System Environment/Libraries
+License:	LGPL-2.0
+Requires:	librgw1 = %{epoch}:%{version}-%{release}
+Requires:	python%{python3_pkgversion}-rados = %{epoch}:%{version}-%{release}
+%description -n python%{python3_pkgversion}-rgw
+This package contains Python 3 libraries for interacting with librgw.
 
 %package -n libcephfs2
 Summary:	Ceph distributed file system client library
@@ -1427,6 +1448,16 @@ ln -sf %{_libdir}/librbd.so.1 /usr/lib64/qemu/librbd.so.1
 %defattr(-,root,root,-)
 %{python3_sitearch}/rbd.cpython*.so
 %{python3_sitearch}/rbd-*.egg-info
+
+%files -n python-rgw
+%defattr(-,root,root,-)
+%{python_sitearch}/rgw.so
+%{python_sitearch}/rgw-*.egg-info
+
+%files -n python%{python3_pkgversion}-rgw
+%defattr(-,root,root,-)
+%{python3_sitearch}/rgw.cpython*.so
+%{python3_sitearch}/rgw-*.egg-info
 
 %files -n libcephfs2
 %defattr(-,root,root,-)
